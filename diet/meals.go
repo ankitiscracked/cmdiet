@@ -3,8 +3,26 @@ package diet
 import (
 	"cmdiet/database"
 	"cmdiet/types"
+	"database/sql"
 	"fmt"
+	"time"
 )
+
+func AddMeal(db *sql.DB, name string, calories int) (int64, error) {
+	insertMealSql := `insert into meals (name, calories, timestamp) values (?, ?, ?)`
+	statement, err := db.Prepare(insertMealSql)
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+	result, err := statement.Exec(name, calories, time.Now().UnixMilli())
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	return result.LastInsertId()
+}
 
 func UpsertMealMacros(mealId int, protien, carbs, fat int) {
 	// now := time.Now().Unix()

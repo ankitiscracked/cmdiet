@@ -64,7 +64,7 @@ func ViewWeeklyDiet(weeklyDiet []diet.DayDiet) tableModel {
 		table.WithColumns(column),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		table.WithHeight(7),
+		table.WithHeight(len(weeklyDiet)),
 	)
 
 	s := table.DefaultStyles()

@@ -40,7 +40,7 @@ func (d *dietService) LogDiet(mealType string, mealName string, calories int, so
 	if d.MealTypeLoggedForToday(mealType) {
 		return errors.New("meal type already logged for today")
 	}
-	mealId, err := addMeal(d.db, mealName, calories)
+	mealId, err := AddMeal(d.db, mealName, calories)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -65,22 +65,6 @@ func insertDiet(db *sql.DB, mealId int64, mealType string, source string) {
 	}
 }
 
-func addMeal(db *sql.DB, name string, calories int) (int64, error) {
-	insertMealSql := `insert into meals (name, calories, timestamp) values (?, ?, ?)`
-	statement, err := db.Prepare(insertMealSql)
-	if err != nil {
-		fmt.Println(err)
-		return 0, err
-	}
-	result, err := statement.Exec(name, calories, time.Now().UnixMilli())
-	if err != nil {
-		fmt.Println(err)
-		return 0, err
-	}
-
-	return result.LastInsertId()
-}
-
 func (d *dietService) GetLastWeekDiet() []DayDiet {
 	rows, err := d.db.Query(`SELECT meal_id, meal_type, timestamp FROM diet WHERE timestamp > ?`, time.Now().AddDate(0, 0, -7).UnixMilli())
 	if err != nil {
@@ -90,9 +74,8 @@ func (d *dietService) GetLastWeekDiet() []DayDiet {
 	defer rows.Close()
 
 	type Diet struct {
-		name     string
 		mealType string
-		calories int
+		meal     types.Meal
 	}
 
 	dietMap := make(map[string][]Diet)
@@ -105,7 +88,7 @@ func (d *dietService) GetLastWeekDiet() []DayDiet {
 		meal := fetchMealData(mealId)
 
 		day := time.UnixMilli(timestamp).Format("2006-01-02")
-		dietMap[day] = append(dietMap[day], Diet{meal.Name, mealType, meal.Calories})
+		dietMap[day] = append(dietMap[day], Diet{mealType, meal})
 	}
 
 	weekDiets := make([]DayDiet, len(dietMap))
@@ -116,22 +99,26 @@ func (d *dietService) GetLastWeekDiet() []DayDiet {
 
 		d.Day = day
 		for _, diet := range diets {
+			d.Protein = int(diet.meal.Protein.Int16)
+			d.Carbs = int(diet.meal.Carbs.Int16)
+			d.Fat = int(diet.meal.Fat.Int16)
 			switch diet.mealType {
 			case "breakfast":
-				d.Breakfast = diet.name
+				d.Breakfast = diet.meal.Name
 			case "lunch":
-				d.Lunch = diet.name
+				d.Lunch = diet.meal.Name
 			case "dinner":
-				d.Dinner = diet.name
+				d.Dinner = diet.meal.Name
 			}
 
-			totalCalories += diet.calories
+			totalCalories += diet.meal.Calories
 		}
 		d.TotalCalories = totalCalories
 
 		weekDiets = append(weekDiets, d)
 	}
 
+	fmt.Println(weekDiets)
 	return weekDiets
 }
 

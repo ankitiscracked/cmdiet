@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"cmdiet/database"
 	"cmdiet/diet"
 	"cmdiet/ui"
 	"log"
@@ -14,7 +15,7 @@ var viewCmd = &cobra.Command{
 	Short: "View the diet breakdown for a given day.",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		weekDiets := diet.DefaultDietService.GetLastWeekDiet()
+		weekDiets := diet.NewDietService(database.DB).GetLastWeekDiet()
 		program := tea.NewProgram(ui.ViewWeeklyDiet(weekDiets))
 		if _, err := program.Run(); err != nil {
 			log.Fatal(err)

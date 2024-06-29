@@ -9,20 +9,30 @@ import (
 
 var DB *sql.DB
 
-func InitDB() {
+func InitDB(dbName string) {
 	var err error
-	DB, err = sql.Open("sqlite3", "./diet.db")
+	DB, err = sql.Open("sqlite3", dbName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	createTable(CreateDietTableSql)
-	createTable(CreateMealTableSql)
+	err = DB.Ping()
+	if err != nil {
+		log.Fatal(err)
+		DB.Close()
+	}
+
+	CreateTable(CreateDietTableSql)
+	CreateTable(CreateMealTableSql)
 }
 
-func createTable(ddl string) {
+func CreateTable(ddl string) {
 	_, err := DB.Exec(ddl)
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func CloseDB() {
+	DB.Close()
 }
