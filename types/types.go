@@ -11,3 +11,9 @@ type Meal struct {
 	Fat       sql.NullInt16
 	Timestamp int
 }
+
+type Diet struct {
+	Day      string
+	MealType string
+	Meal     Meal
+}

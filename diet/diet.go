@@ -12,7 +12,8 @@ import (
 type DietService interface {
 	LogDiet(mealType string, mealName string, calories int, source string) error
 	MealTypeLoggedForToday(mealType string) bool
-	GetLastWeekDiet() []DayDiet
+	GetDayDietsByOffset(offset int, timestamp int64) ([]DayDiet, error)
+	GetBatchedDayDiets(afterUnixMilli int64, beforeUnixMilli int64) ([]DayDiet, error)
 }
 
 type dietService struct {
@@ -65,20 +66,87 @@ func insertDiet(db *sql.DB, mealId int64, mealType string, source string) {
 	}
 }
 
-func (d *dietService) GetLastWeekDiet() []DayDiet {
-	rows, err := d.db.Query(`SELECT meal_id, meal_type, timestamp FROM diet WHERE timestamp > ?`, time.Now().AddDate(0, 0, -7).UnixMilli())
+func (d *dietService) GetDayDietsByOffset(offset int, timestamp int64) ([]DayDiet, error) {
+	if timestamp != 0 {
+		boundingMilli := time.UnixMilli(timestamp).AddDate(0, 0, offset).UnixMilli()
+		if offset < 0 {
+			return d.GetBatchedDayDiets(boundingMilli, timestamp)
+		} else {
+			return d.GetBatchedDayDiets(timestamp, boundingMilli)
+		}
+	} else {
+		if offset < 0 {
+			return nil, errors.New("offset must be more than 0")
+		}
+		afterUnixMilli := time.Now().AddDate(0, 0, -offset).UnixMilli()
+		return d.GetBatchedDayDiets(afterUnixMilli, 0)
+	}
+}
+
+func (d *dietService) GetBatchedDayDiets(afterUnixMilli int64, beforeUnixMilli int64) ([]DayDiet, error) {
+	rows, err := getBatchedDiets(afterUnixMilli, beforeUnixMilli, d)
 	if err != nil {
 		fmt.Println(err)
+		return nil, err
 	}
 
 	defer rows.Close()
 
-	type Diet struct {
-		mealType string
-		meal     types.Meal
+	dietMap := dietsOfDay(rows)
+	var weekDiets []DayDiet
+
+	return weeklyDiets(dietMap, weekDiets), nil
+}
+
+func getBatchedDiets(afterUnixMilli int64, beforeUnixMilli int64, d *dietService) (*sql.Rows, error) {
+	var rows *sql.Rows
+	var err error
+	if afterUnixMilli != 0 && beforeUnixMilli != 0 {
+		rows, err = d.db.Query(`SELECT meal_id, meal_type, timestamp FROM diet WHERE timestamp > ? and timestamp < ?`, afterUnixMilli, beforeUnixMilli)
+	} else if afterUnixMilli != 0 {
+		rows, err = d.db.Query(`SELECT meal_id, meal_type, timestamp FROM diet WHERE timestamp > ?`, afterUnixMilli)
+	} else if beforeUnixMilli != 0 {
+		rows, err = d.db.Query(`SELECT meal_id, meal_type, timestamp FROM diet WHERE timestamp < ?`, beforeUnixMilli)
+	}
+	return rows, err
+}
+
+/*
+this function takes a map of day - diets of that day for a week and
+returns tabular view of the details of the diets
+*/
+func weeklyDiets(dietMap map[string][]types.Diet, weekDiets []DayDiet) []DayDiet {
+	for day, diets := range dietMap {
+		var d DayDiet
+		var totalCalories int
+
+		d.Day = day
+		for _, diet := range diets {
+			d.Protein = int(diet.Meal.Protein.Int16)
+			d.Carbs = int(diet.Meal.Carbs.Int16)
+			d.Fat = int(diet.Meal.Fat.Int16)
+			switch diet.MealType {
+			case "breakfast":
+				d.Breakfast = diet.Meal.Name
+			case "lunch":
+				d.Lunch = diet.Meal.Name
+			case "dinner":
+				d.Dinner = diet.Meal.Name
+			}
+
+			totalCalories += diet.Meal.Calories
+		}
+		d.TotalCalories = totalCalories
+
+		weekDiets = append(weekDiets, d)
 	}
 
-	dietMap := make(map[string][]Diet)
+	return weekDiets
+}
+
+// instead of this, use the group by clause in the query
+func dietsOfDay(rows *sql.Rows) map[string][]types.Diet {
+	dietMap := make(map[string][]types.Diet)
 
 	for rows.Next() {
 		var mealType string
@@ -88,38 +156,9 @@ func (d *dietService) GetLastWeekDiet() []DayDiet {
 		meal := fetchMealData(mealId)
 
 		day := time.UnixMilli(timestamp).Format("2006-01-02")
-		dietMap[day] = append(dietMap[day], Diet{mealType, meal})
+		dietMap[day] = append(dietMap[day], types.Diet{Day: day, MealType: mealType, Meal: meal})
 	}
-
-	weekDiets := make([]DayDiet, len(dietMap))
-
-	for day, diets := range dietMap {
-		var d DayDiet
-		var totalCalories int
-
-		d.Day = day
-		for _, diet := range diets {
-			d.Protein = int(diet.meal.Protein.Int16)
-			d.Carbs = int(diet.meal.Carbs.Int16)
-			d.Fat = int(diet.meal.Fat.Int16)
-			switch diet.mealType {
-			case "breakfast":
-				d.Breakfast = diet.meal.Name
-			case "lunch":
-				d.Lunch = diet.meal.Name
-			case "dinner":
-				d.Dinner = diet.meal.Name
-			}
-
-			totalCalories += diet.meal.Calories
-		}
-		d.TotalCalories = totalCalories
-
-		weekDiets = append(weekDiets, d)
-	}
-
-	fmt.Println(weekDiets)
-	return weekDiets
+	return dietMap
 }
 
 func (d *dietService) MealTypeLoggedForToday(mealType string) bool {

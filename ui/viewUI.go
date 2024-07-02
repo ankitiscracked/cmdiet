@@ -2,15 +2,25 @@ package ui
 
 import (
 	"cmdiet/diet"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
+type summary struct {
+	totlaCalories int
+	totalProtein  int
+	totalCarbs    int
+	totalFat      int
+}
+
 type tableModel struct {
-	table table.Model
+	table   table.Model
+	summary *summary
 }
 
 var baseStyle = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240"))
@@ -39,7 +49,12 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m tableModel) View() string {
-	return baseStyle.Render(m.table.View()) + "\n"
+	var builder strings.Builder
+	builder.WriteString(baseStyle.Render(m.table.View()) + "\n")
+	if m.summary != nil {
+		fmt.Fprintf(&builder, "Total calories: %d kcal, Total protein: %d grams, Total carbs: %d grams, Total fat: %d grams\n", m.summary.totlaCalories, m.summary.totalProtein, m.summary.totalCarbs, m.summary.totalFat)
+	}
+	return builder.String()
 }
 
 func ViewWeeklyDiet(weeklyDiet []diet.DayDiet) tableModel {
@@ -72,5 +87,25 @@ func ViewWeeklyDiet(weeklyDiet []diet.DayDiet) tableModel {
 	s.Selected = s.Selected.Foreground(lipgloss.Color("229")).Background(lipgloss.Color("57")).Bold(false)
 	t.SetStyles(s)
 
-	return tableModel{t}
+	summary := BatchedDietsSummary(weeklyDiet)
+	return tableModel{t, summary}
+}
+
+func BatchedDietsSummary(weeklyDiet []diet.DayDiet) *summary {
+	var totalCalories, totalProtein, totalCarbs, totalFat int
+	for _, diet := range weeklyDiet {
+		totalCalories += diet.TotalCalories
+		totalProtein += diet.Protein
+		totalCarbs += diet.Carbs
+		totalFat += diet.Fat
+	}
+
+	summary := &summary{
+		totlaCalories: totalCalories,
+		totalProtein:  totalProtein,
+		totalCarbs:    totalCarbs,
+		totalFat:      totalFat,
+	}
+
+	return summary
 }
