@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"cmdiet/database"
 	"cmdiet/diet"
 	"cmdiet/ui"
 	"log"
@@ -21,7 +20,6 @@ var (
 var viewCmd = &cobra.Command{
 	Use:   "view [date]",
 	Short: "View the diet breakdown for a given day.",
-	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		var finalOffset int
 		if offset != 0 {
@@ -30,7 +28,7 @@ var viewCmd = &cobra.Command{
 			finalOffset = 7
 		}
 
-		weekDiets, err := diet.NewDietService(database.DB).GetDayDietsByOffset(finalOffset, 0)
+		weekDiets, err := diet.DS.GetDayDietsByOffset(finalOffset, 0)
 		if err != nil {
 			log.Fatal(err)
 		}

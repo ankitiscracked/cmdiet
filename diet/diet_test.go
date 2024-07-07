@@ -1,37 +1,32 @@
 package diet
 
 import (
-	"cmdiet/database"
-	"database/sql"
+	"fmt"
 	"testing"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-func setupTestDB() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+func setupTestDB(t *testing.T) (*gorm.DB, error) {
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
-		return nil, err
+		return db, fmt.Errorf("couldn't open the database: %w", err)
 	}
-
-	execDdl(db, database.CreateDietTableSql)
-	execDdl(db, database.CreateMealTableSql)
-
+	db.AutoMigrate(&Diet{})
+	t.Cleanup(func() {
+		db.Migrator().DropTable(&Diet{})
+	})
 	return db, nil
 }
 
-func execDdl(db *sql.DB, ddl string) error {
-	_, err := db.Exec(ddl)
-	return err
-}
-
 func TestErrorLoggingTheSameMeal(t *testing.T) {
-	db, err := setupTestDB()
+	db, err := setupTestDB(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	defer db.Close()
-
-	dietService := NewDietService(db)
+	dietService := &DietServiceImpl{DB: db}
 	err = dietService.LogDiet("breakfast", "eggs", 200, "home")
 	if err != nil {
 		t.Fatal(err)

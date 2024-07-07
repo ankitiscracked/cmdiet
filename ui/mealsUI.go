@@ -1,8 +1,9 @@
 package ui
 
 import (
-	"cmdiet/diet"
+	"cmdiet/meals"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -174,7 +175,10 @@ func (m mealsModel) View() string {
 }
 
 func ViewMealsModel() mealsModel {
-	allMeals := diet.GetAllMeals()
+	allMeals, err := meals.MS.GetAllMeals()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var items []list.Item
 	for _, meal := range allMeals {

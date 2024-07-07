@@ -1,10 +1,6 @@
 package commands
 
 import (
-	"cmdiet/ui"
-	"log"
-
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
 
@@ -13,10 +9,10 @@ var addMealCmd = &cobra.Command{
 	Short: "Add a meal to your catalog",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		program := tea.NewProgram(ui.AddMeal(mealType))
-		if _, err := program.Run(); err != nil {
-			log.Fatal(err)
-		}
+		// program := tea.NewProgram(meals.MS.AddMeal(mealType))
+		// if _, err := program.Run(); err != nil {
+		// log.Fatal(err)
+		// }
 	},
 }
 

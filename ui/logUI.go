@@ -2,7 +2,9 @@ package ui
 
 import (
 	"cmdiet/diet"
+	"cmdiet/meals"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -28,6 +30,7 @@ var (
 	meal     string
 	calories string
 	source   string
+	mealId   int
 )
 
 type (
@@ -39,20 +42,33 @@ type (
 		cursorMode cursor.Mode
 		mealType   string
 		form       *huh.Form
+		quitting   bool
 	}
 )
 
 func NewDietModel(mealType string) model {
 	m := model{mealType: mealType}
-	m.form = huh.NewForm(
+	m.form = createForm(
+		huh.NewInput().Title("Enter the meal name").Value(&meal),
+	)
+	return m
+}
+
+func createForm(mealInput huh.Field) *huh.Form {
+	return huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Title("Enter the meal name").Value(&meal),
+			mealInput,
 			huh.NewInput().Title("Enter the no. of calories").Value(&calories),
-			huh.NewInput().Title("Enter the source").Prompt("Home/Out").Value(&source),
+			huh.NewSelect[string]().
+				Title("Where did you eat?").
+				Options(
+					huh.NewOption("Cooked", "cooked"),
+					huh.NewOption("Orderd-in", "orderedin"),
+					huh.NewOption("Went Out", "wentout"),
+				).
+				Value(&source),
 		),
 	)
-
-	return m
 }
 
 func (m model) Init() tea.Cmd {
@@ -69,6 +85,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "ctrl+s":
+			meals, err := meals.MS.GetAllMeals()
+			if err != nil {
+				log.Fatal(err)
+			}
+			var options []huh.Option[int]
+			for _, meal := range meals {
+				options = append(options, huh.NewOption(meal.Name, meal.Id))
+			}
+			mealInput := huh.NewSelect[int]().Title("Select one of your meals").Options(options...).Height(10).Value(&mealId)
+			m.form = createForm(mealInput)
 		}
 	}
 
@@ -84,52 +111,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if err != nil {
 			m.err = fmt.Errorf("calories must be a number")
 		}
-		diet.DefaultDietService.LogDiet(m.mealType, meal, i, source)
+		var logError error
+		if mealId != 0 {
+			logError = diet.DS.LogDietWithExistingMeal(int64(mealId), m.mealType, source)
+		} else {
+			logError = diet.DS.LogDietWithNewMeal(m.mealType, meal, i, source)
+		}
+		if logError != nil {
+			log.Fatal(logError)
+		}
+
+		m.quitting = true
 		cmds = append(cmds, tea.Quit)
 	}
 
 	return m, tea.Batch(cmds...)
 }
 
-func (m *model) updateInputs(msg tea.Msg) tea.Cmd {
-	cmds := make([]tea.Cmd, len(m.inputs))
-	for i := range m.inputs {
-		m.inputs[i], cmds[i] = m.inputs[i].Update(msg)
-	}
-	return tea.Batch(cmds...)
-}
-
 func (m model) View() string {
+	if m.quitting {
+		return lipgloss.NewStyle().Render("I've logged your diet!")
+	}
 	return formStyle.Render(m.form.View())
 }
-
-// func LogMealModel(mealType string) model {
-// 	newModel := model{
-// 		inputs:   make([]textinput.Model, 3),
-// 		mealType: mealType,
-// 	}
-//
-// 	for i := range newModel.inputs {
-// 		input := textinput.New()
-// 		input.Cursor.Style = cursorStyle
-// 		input.CharLimit = 32
-//
-// 		switch i {
-// 		case 0:
-// 			input.Placeholder = "What did you eat?"
-// 			input.Focus()
-// 			input.PromptStyle = focusedStyle
-// 			input.TextStyle = focusedStyle
-// 		case 1:
-// 			input.Placeholder = "Enter the calories. (Press enter to skip):"
-// 			input.CharLimit = 5
-// 		case 2:
-// 			input.Placeholder = "Home or Out?"
-// 			input.CharLimit = 5
-// 		}
-//
-// 		newModel.inputs[i] = input
-// 	}
-//
-// 	return newModel
-// }
