@@ -109,9 +109,9 @@ func weeklyDiets(dietMap map[string][]DietResp, weekDiets []DayDiet) []DayDiet {
 
 		d.Day = day
 		for _, diet := range diets {
-			d.Protein = int(diet.Meal.Protein.Int16)
-			d.Carbs = int(diet.Meal.Carbs.Int16)
-			d.Fat = int(diet.Meal.Fat.Int16)
+			d.Protein = int(diet.Meal.Protein)
+			d.Carbs = int(diet.Meal.Carbs)
+			d.Fat = int(diet.Meal.Fat)
 			switch diet.MealType {
 			case "breakfast":
 				d.Breakfast = diet.Meal.Name

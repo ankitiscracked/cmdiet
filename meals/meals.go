@@ -27,20 +27,14 @@ func (m *MealServiceImpl) AddMeal(name string, calories int) (Meal, error) {
 	return meal, nil
 }
 
-func (m *MealServiceImpl) UpdateMeal(mealId int, protien, carbs, fat int) {
-	// now := time.Now().Unix()
-	// updateSql := `update meals set protein = ?, carbs = ?, fat = ? where id = ?`
-	// statement, err := database.DB.Prepare(updateSql)
-	//
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	//
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-	// fmt.Println("Meal macros has been updated")
+func (m *MealServiceImpl) UpdateMeal(updatedMeal Meal) error {
+	if updatedMeal.Id == 0 {
+		return fmt.Errorf("meal id is required")
+	}
+	if err := m.DB.Save(&updatedMeal).Error; err != nil {
+		return fmt.Errorf("couldn't update meal %v", err)
+	}
+	return nil
 }
 
 func (m *MealServiceImpl) GetAllMeals() ([]Meal, error) {

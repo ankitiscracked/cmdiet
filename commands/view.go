@@ -32,7 +32,7 @@ var viewCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		program := tea.NewProgram(ui.ViewWeeklyDiet(weekDiets))
+		program := tea.NewProgram(ui.ViewWeeklyDiet(weekDiets, finalOffset))
 		if _, err := program.Run(); err != nil {
 			log.Fatal(err)
 		}

@@ -1,13 +1,11 @@
 package meals
 
-import "database/sql"
-
 type Meal struct {
 	Id        int
 	Name      string
 	Calories  int
-	Protein   sql.NullInt16
-	Carbs     sql.NullInt16
-	Fat       sql.NullInt16
+	Protein   int
+	Carbs     int
+	Fat       int
 	Timestamp int
 }

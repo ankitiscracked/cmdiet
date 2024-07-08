@@ -1,11 +1,15 @@
 package ui
 
 import (
+	"cmdiet/constants"
 	"cmdiet/diet"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,8 +23,13 @@ type summary struct {
 }
 
 type tableModel struct {
-	table   table.Model
-	summary *summary
+	table          table.Model
+	summary        *summary
+	startTimestamp int64
+	endTimestamp   int64
+	batchCount     int
+	quitting       bool
+	help           help.Model
 }
 
 var baseStyle = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240"))
@@ -33,31 +42,68 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			m.quitting = true
 			return m, tea.Quit
-		case tea.KeyEsc:
+		case "esc":
 			if m.table.Focused() {
 				m.table.Blur()
 			} else {
 				m.table.Focus()
 			}
+		case "h", "left":
+			endTimestamp := m.startTimestamp
+			startTimestamp := time.UnixMilli(m.startTimestamp).AddDate(0, 0, -m.batchCount).UnixMilli()
+			updateTableAndBatchTimeRange(startTimestamp, endTimestamp, &m)
+		case "l", "right":
+			startTimestamp := m.endTimestamp
+			endTimestamp := time.UnixMilli(m.endTimestamp).AddDate(0, 0, m.batchCount).UnixMilli()
+			updateTableAndBatchTimeRange(startTimestamp, endTimestamp, &m)
 		}
 		m.table, cmd = m.table.Update(msg)
 	}
 	return m, cmd
 }
 
+func updateTableAndBatchTimeRange(startTimestamp int64, endTimestamp int64, m *tableModel) {
+	table, err := createTableFromTimestampRange(startTimestamp, endTimestamp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(table.Rows()) != 0 {
+		m.startTimestamp = startTimestamp
+		m.endTimestamp = endTimestamp
+		m.table = table
+	}
+}
+
 func (m tableModel) View() string {
+	if m.quitting {
+		return ""
+	}
+
 	var builder strings.Builder
 	builder.WriteString(baseStyle.Render(m.table.View()) + "\n")
 	if m.summary != nil {
 		fmt.Fprintf(&builder, "Total calories: %d kcal, Total protein: %d grams, Total carbs: %d grams, Total fat: %d grams\n", m.summary.totlaCalories, m.summary.totalProtein, m.summary.totalCarbs, m.summary.totalFat)
 	}
+	builder.WriteString(m.help.View(constants.ViewTableKeyMap))
 	return builder.String()
 }
 
-func ViewWeeklyDiet(weeklyDiet []diet.DayDiet) tableModel {
+func ViewWeeklyDiet(weeklyDiet []diet.DayDiet, offset int) tableModel {
+	startTimestamp := time.Now().AddDate(0, 0, -offset).UnixMilli()
+	endTimestamp := time.Now().UnixMilli()
+	t := createTable(weeklyDiet)
+	summary := BatchedDietsSummary(weeklyDiet)
+
+	return tableModel{
+		t, summary, startTimestamp, endTimestamp, offset, false, help.New(),
+	}
+}
+
+func createTable(weeklyDiet []diet.DayDiet) table.Model {
 	column := []table.Column{
 		{Title: "Day", Width: 16},
 		{Title: "Breakfast", Width: 16},
@@ -86,9 +132,15 @@ func ViewWeeklyDiet(weeklyDiet []diet.DayDiet) tableModel {
 	s.Header = s.Header.BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240")).BorderBottom(true).Bold(false)
 	s.Selected = s.Selected.Foreground(lipgloss.Color("229")).Background(lipgloss.Color("57")).Bold(false)
 	t.SetStyles(s)
+	return t
+}
 
-	summary := BatchedDietsSummary(weeklyDiet)
-	return tableModel{t, summary}
+func createTableFromTimestampRange(startTimestamp int64, endTimestamp int64) (table.Model, error) {
+	weeklyDiet, err := diet.DS.GetBatchedDayDiets(startTimestamp, endTimestamp)
+	if err != nil {
+		return table.Model{}, fmt.Errorf("couldn't fetch batched diet: %v", err)
+	}
+	return createTable(weeklyDiet), nil
 }
 
 func BatchedDietsSummary(weeklyDiet []diet.DayDiet) *summary {
