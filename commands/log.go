@@ -21,7 +21,7 @@ func validMealType(mealType string) bool {
 }
 
 var logCmd = &cobra.Command{
-	Use:   "log [breakfast | lunch | snacks | dinner]",
+	Use:   "log [breakfast | lunch | snacks |dinner]",
 	Short: "Log your diet for breakfast, lunch, or afternoon.",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

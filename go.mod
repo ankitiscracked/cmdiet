@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/NimbleMarkets/ntcharts v0.1.2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/brianvoe/gofakeit/v7 v7.0.4 // indirect
@@ -26,6 +27,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/lrstanley/bubblezone v0.0.0-20240125042004-b7bafc493195 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
