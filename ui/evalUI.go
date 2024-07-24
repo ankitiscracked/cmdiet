@@ -2,6 +2,7 @@ package ui
 
 import (
 	"cmdiet/diet"
+	"fmt"
 	"log"
 	"time"
 
@@ -87,8 +88,14 @@ func (m evalModel) View() string {
 	if m.quitting {
 		return ""
 	}
+
+	fmtString := "02 Jan"
+	from := time.UnixMilli(m.startTimestamp).Format(fmtString)
+	to := time.UnixMilli(m.endTimestamp).Format(fmtString)
+
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("#32de84")).
-		Render("Here's your calories graph for the last week") + "\n" +
+		Render(fmt.Sprintf("Your calorie intake from %s to %s", from, to)) +
+		"\n\n" +
 		lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("63")).

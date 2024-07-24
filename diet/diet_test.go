@@ -1,9 +1,11 @@
 package diet
 
 import (
+	"cmdiet/meals"
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -13,26 +15,64 @@ func setupTestDB(t *testing.T) (*gorm.DB, error) {
 	if err != nil {
 		return db, fmt.Errorf("couldn't open the database: %w", err)
 	}
+
 	db.AutoMigrate(&Diet{})
+	db.AutoMigrate(&meals.Meal{})
+
 	t.Cleanup(func() {
 		db.Migrator().DropTable(&Diet{})
+		db.Migrator().DropTable(&meals.Meal{})
 	})
 	return db, nil
 }
 
-func TestErrorLoggingTheSameMeal(t *testing.T) {
+func TestLogRepeatedMeal(t *testing.T) {
 	db, err := setupTestDB(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	meals.MS = &meals.MealServiceImpl{DB: db}
 	dietService := &DietServiceImpl{DB: db}
-	err = dietService.LogDiet("breakfast", "eggs", 200, "home")
+
+	err = dietService.LogDietWithNewMeal(Breakfast, "eggs", 200, "home")
+	assert.Nil(t, err)
+
+	err = dietService.LogDietWithNewMeal(Breakfast, "eggs", 200, "home")
+	assert.NotNil(t, err)
+}
+
+func TestLogWithInvalidMeal(t *testing.T) {
+	db, err := setupTestDB(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = dietService.LogDiet("breakfast", "eggs", 200, "home")
-	if err == nil {
-		t.Fatal("Expected an error but got nil")
+
+	meals.MS = &meals.MealServiceImpl{DB: db}
+	dietService := &DietServiceImpl{DB: db}
+
+	err = dietService.LogDietWithExistingMeal(1, Breakfast, "home")
+	assert.NotNil(t, err)
+}
+
+func TestLogInputs(t *testing.T) {
+	db, err := setupTestDB(t)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	dietService := &DietServiceImpl{}
+	meals.MS = &meals.MealServiceImpl{DB: db}
+
+	t.Run("should throw for unsupported meal type", func(t *testing.T) {
+		err := dietService.LogDietWithNewMeal(0, "eggs", 200, "home")
+		assert.NotNil(t, err)
+	})
+
+	// t.Run("should throw for unsupported source type", func(t *testing.T) {
+	// 	err := dietService.LogDietWithNewMeal("breakfast", "eggs", 200, "home")
+	// 	if err != nil {
+	// 		t.Fatal("Expected an error but got nil")
+	// 	}
+	// })
 }

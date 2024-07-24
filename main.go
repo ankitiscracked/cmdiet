@@ -18,10 +18,8 @@ func openDatabse(isFake bool) (*gorm.DB, error) {
 	var db *gorm.DB
 	var err error
 	if isFake {
-		fmt.Println("Using fake database")
 		db, err = gorm.Open(sqlite.Open("fake.db"), &gorm.Config{})
 	} else {
-		fmt.Println("Using real database")
 		db, err = gorm.Open(sqlite.Open("diet.db"), &gorm.Config{})
 	}
 	if err != nil {

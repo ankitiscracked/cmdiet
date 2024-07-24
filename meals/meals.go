@@ -28,12 +28,14 @@ func (m *MealServiceImpl) AddMeal(name string, calories int) (Meal, error) {
 }
 
 func (m *MealServiceImpl) UpdateMeal(updatedMeal Meal) error {
-	if updatedMeal.Id == 0 {
-		return fmt.Errorf("meal id is required")
+	var meal Meal
+	if err := m.DB.Where("id", updatedMeal.Id).First(&meal).Error; err != nil {
+		return fmt.Errorf("couldn't find meal with id %d, %v", updatedMeal.Id, err)
 	}
-	if err := m.DB.Save(&updatedMeal).Error; err != nil {
+	if err := m.DB.Save(updatedMeal).Error; err != nil {
 		return fmt.Errorf("couldn't update meal %v", err)
 	}
+
 	return nil
 }
 
@@ -47,7 +49,7 @@ func (m *MealServiceImpl) GetAllMeals() ([]Meal, error) {
 
 func (m *MealServiceImpl) GetMeal(mealId int) (Meal, error) {
 	var meal Meal
-	if err := m.DB.Find(&meal, mealId).Error; err != nil {
+	if err := m.DB.First(&meal, mealId).Error; err != nil {
 		return meal, fmt.Errorf("couldn't get meal: %v", err)
 	}
 	return meal, nil

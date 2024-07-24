@@ -83,12 +83,19 @@ func (m tableModel) View() string {
 		return ""
 	}
 
+	fmtString := "02 Jan"
+	from := time.UnixMilli(m.startTimestamp).Format(fmtString)
+	to := time.UnixMilli(m.endTimestamp).Format(fmtString)
+
 	var builder strings.Builder
-	builder.WriteString(baseStyle.Render(m.table.View()) + "\n")
+	title := lipgloss.NewStyle().Foreground(lipgloss.Color("#32de84")).
+		Render(fmt.Sprintf("Your diet logs from %s to %s", from, to))
+	builder.WriteString(title)
+	builder.WriteString("\n\n" + baseStyle.Render(m.table.View()) + "\n")
 	if m.summary != nil {
 		fmt.Fprintf(&builder, "Total calories: %d kcal, Total protein: %d grams, Total carbs: %d grams, Total fat: %d grams\n", m.summary.totlaCalories, m.summary.totalProtein, m.summary.totalCarbs, m.summary.totalFat)
 	}
-	builder.WriteString(m.help.View(constants.ViewTableKeyMap))
+	builder.WriteString("\n\n" + m.help.View(constants.ViewTableKeyMap))
 	return builder.String()
 }
 

@@ -11,6 +11,27 @@ import (
 	"gorm.io/gorm"
 )
 
+type MealType int
+
+const (
+	Breakfast MealType = iota + 1
+	Lunch
+	Dinner
+)
+
+func (m MealType) String() string {
+	switch m {
+	case Breakfast:
+		return "breakfast"
+	case Lunch:
+		return "lunch"
+	case Dinner:
+		return "dinner"
+	default:
+		return fmt.Sprintf("unknown meal type (%d)", int(m))
+	}
+}
+
 var DS *DietServiceImpl
 
 type DietService interface {
@@ -24,10 +45,20 @@ type DietServiceImpl struct {
 	DB *gorm.DB
 }
 
-func (d *DietServiceImpl) LogDietWithNewMeal(mealType string, mealName string, calories int, source string) error {
-	if d.MealTypeLoggedForToday(mealType) {
+func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string, calories int, source string) error {
+	if !ValidMealType(mealType) {
+		return fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
+	}
+
+	logged, err := d.MealTypeLoggedForToday(mealType)
+	if err != nil {
+		return err
+	}
+
+	if logged {
 		return errors.New("meal type already logged for today")
 	}
+
 	meal, err := meals.MS.AddMeal(mealName, calories)
 	if err != nil {
 		log.Fatal(err)
@@ -38,19 +69,30 @@ func (d *DietServiceImpl) LogDietWithNewMeal(mealType string, mealName string, c
 	return nil
 }
 
-func (d *DietServiceImpl) LogDietWithExistingMeal(mealId int64, mealType string, source string) error {
-	if d.MealTypeLoggedForToday(mealType) {
+func (d *DietServiceImpl) LogDietWithExistingMeal(mealId int64, mealType MealType, source string) error {
+	logged, err := d.MealTypeLoggedForToday(mealType)
+	if err != nil {
+		return err
+	}
+
+	if logged {
 		return errors.New("meal type already logged for today")
 	}
+
+	_, err = meals.MS.GetMeal(int(mealId))
+	if err != nil {
+		return err
+	}
+
 	insertDiet(d.DB, mealId, mealType, source)
 	fmt.Println("Diet logged successfully")
 	return nil
 }
 
-func insertDiet(db *gorm.DB, mealId int64, mealType string, source string) (Diet, error) {
-	diet := Diet{MealId: mealId, MealType: mealType, Source: source, Timestamp: time.Now().UnixMilli()}
+func insertDiet(db *gorm.DB, mealId int64, mealType MealType, source string) (Diet, error) {
+	diet := Diet{MealId: mealId, MealType: mealType.String(), Source: source, Timestamp: time.Now().UnixMilli()}
 	if err := db.Create(&diet).Error; err != nil {
-		return diet, fmt.Errorf("couldn't log diet", err)
+		return diet, fmt.Errorf("couldn't log diet %v", err)
 	}
 	return diet, nil
 }
@@ -147,7 +189,7 @@ func dietsOfDay(diets []Diet) (map[string][]DietResp, error) {
 	for _, diet := range diets {
 		meal, err := meals.MS.GetMeal(int(diet.MealId))
 		if err != nil {
-			return nil, fmt.Errorf("couldn't get the meal for id: %s %v", diet.MealId, err)
+			return nil, fmt.Errorf("couldn't get the meal for id: %d %v", diet.MealId, err)
 		}
 
 		day := time.UnixMilli(diet.Timestamp).Format("2006-01-02")
@@ -156,13 +198,16 @@ func dietsOfDay(diets []Diet) (map[string][]DietResp, error) {
 	return dietMap, nil
 }
 
-func (d *DietServiceImpl) MealTypeLoggedForToday(mealType string) bool {
+func (d *DietServiceImpl) MealTypeLoggedForToday(mealType MealType) (bool, error) {
+	if !ValidMealType(mealType) {
+		return false, fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
+	}
 	var count int64
 	start, end := timeStampRangeForToday()
-	if err := d.DB.Model(&Diet{}).Where("meal_type = ? and timestamp between ? and ?", mealType, start, end).Count(&count).Error; err != nil {
+	if err := d.DB.Model(&Diet{}).Where("meal_type = ? and timestamp between ? and ?", mealType.String(), start, end).Count(&count).Error; err != nil {
 		log.Fatal(err)
 	}
-	return count > 0
+	return count > 0, nil
 }
 
 func timeStampRangeForToday() (int64, int64) {
@@ -179,4 +224,26 @@ func (d *DietServiceImpl) EarliestDietTimestamp() int64 {
 		log.Fatal(err)
 	}
 	return earliest
+}
+
+func ValidMealType(mealType MealType) bool {
+	switch mealType {
+	case Breakfast, Lunch, Dinner:
+		return true
+	default:
+		return false
+	}
+}
+
+func GetMealType(mealType string) (MealType, error) {
+	switch mealType {
+	case "breakfast":
+		return Breakfast, nil
+	case "lunch":
+		return Lunch, nil
+	case "dinner":
+		return Dinner, nil
+	default:
+		return 0, fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
+	}
 }

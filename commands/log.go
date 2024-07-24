@@ -9,29 +9,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func validMealType(mealType string) bool {
-	mealTypes := []string{"breakfast", "lunch", "snacks", "dinner"}
-
-	for _, meal := range mealTypes {
-		if meal == mealType {
-			return true
-		}
-	}
-	return false
-}
-
 var logCmd = &cobra.Command{
-	Use:   "log [breakfast | lunch | snacks |dinner]",
+	Use:   "log [breakfast | lunch | snacks | dinner]",
 	Short: "Log your diet for breakfast, lunch, or afternoon.",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		mealType := args[0]
-		if !validMealType(mealType) {
+		res, err := diet.GetMealType(mealType)
+		if err != nil {
 			log.Fatal("Invalid meal type. Please use breakfast, lunch, snacks, or dinner.")
 		}
-		if diet.DS.MealTypeLoggedForToday(mealType) {
+
+		logged, err := diet.DS.MealTypeLoggedForToday(res)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if logged {
 			log.Fatal("You have already logged your " + mealType + " for today.")
 		}
+
 		program := tea.NewProgram(ui.NewDietModel(mealType))
 		if _, err := program.Run(); err != nil {
 			log.Fatal(err)

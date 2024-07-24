@@ -122,7 +122,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.quitting = true
-		cmds = append(cmds, tea.Quit)
+		return m, tea.Quit
 	}
 
 	return m, tea.Batch(cmds...)
@@ -130,7 +130,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.quitting {
-		return lipgloss.NewStyle().Render("I've logged your diet!")
+		successText := lipgloss.NewStyle().Foreground(lipgloss.Color("#874BFC")).Bold(true).Render("Keep logging, keep growing!")
+		return lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#32de84")).
+			Padding(2).
+			Render(successText) + "\n\n"
 	}
-	return formStyle.Render(m.form.View())
+	return "\n" + lipgloss.NewStyle().
+		MarginLeft(2).
+		Padding(0, 1).
+		Foreground(lipgloss.Color("#ffffff")).
+		Background(lipgloss.Color("#6C50FF")).
+		Render(fmt.Sprintf("Let's log your %s", m.mealType)) +
+		"\n\n" +
+		formStyle.Render(m.form.View())
 }
