@@ -178,9 +178,8 @@ func (m mealsModel) View() string {
 	if m.quitting {
 		return ""
 	}
-
 	if m.editing {
-		return lipgloss.JoinHorizontal(lipgloss.Center, m.list.View(), m.detailForm.View())
+		return lipgloss.JoinHorizontal(lipgloss.Center, listStyle.Render(m.list.View()), m.detailForm.View())
 	} else {
 		return listStyle.Render(m.list.View())
 	}

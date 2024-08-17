@@ -4,6 +4,7 @@ import (
 	"cmdiet/diet"
 	"cmdiet/ui"
 	"log"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -15,12 +16,22 @@ var (
 	month    int // flag for --month
 	mealType int // flag for meal type
 	macros   int // flag for macros
+	today    bool
 )
 
 var viewCmd = &cobra.Command{
 	Use:   "view [date]",
 	Short: "View the diet breakdown for a given day.",
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) != 0 && args[0] == "today" {
+			program := tea.NewProgram(ui.NewDayModel(time.Now()))
+			if _, err := program.Run(); err != nil {
+				log.Fatal(err)
+			}
+			return
+		}
+
 		var finalOffset int
 		if offset != 0 {
 			finalOffset = offset
@@ -41,5 +52,7 @@ var viewCmd = &cobra.Command{
 
 func init() {
 	viewCmd.Flags().IntVarP(&offset, "offset", "o", 7, "Number of days to view")
+	viewCmd.Flags().BoolVarP(&today, "today", "t", false, "View today's log summary")
+	viewCmd.ValidArgs = []string{"today"}
 	RootCmd.AddCommand(viewCmd)
 }

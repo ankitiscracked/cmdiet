@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listMealsCmd = &cobra.Command{
-	Use:   "list-meals",
+var listCmd = &cobra.Command{
+	Use:   "list",
 	Short: "List all your logged meals",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -20,6 +20,12 @@ var listMealsCmd = &cobra.Command{
 	},
 }
 
+var mealsCmd = &cobra.Command{
+	Use:   "meals",
+	Short: "List all your logged meals",
+}
+
 func init() {
-	RootCmd.AddCommand(listMealsCmd)
+	mealsCmd.AddCommand(listCmd)
+	RootCmd.AddCommand(mealsCmd)
 }

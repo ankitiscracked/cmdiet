@@ -4,6 +4,7 @@ import (
 	"cmdiet/meals"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
@@ -75,4 +76,25 @@ func TestLogInputs(t *testing.T) {
 	// 		t.Fatal("Expected an error but got nil")
 	// 	}
 	// })
+}
+
+func TestFechingDiets(t *testing.T) {
+	db, err := setupTestDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dietService := &DietServiceImpl{DB: db}
+	diets, err := dietService.GetDietsForDay(time.Now())
+
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(diets))
+
+	dietService.LogDietWithNewMeal(Breakfast, "eggs", 200, "home")
+	dietService.LogDietWithNewMeal(Lunch, "eggs", 200, "home")
+	dietService.LogDietWithNewMeal(Dinner, "eggs", 200, "home")
+	diets, err = dietService.GetDietsForDay(time.Now())
+
+	assert.Nil(t, err)
+	assert.Equal(t, 3, len(diets))
 }

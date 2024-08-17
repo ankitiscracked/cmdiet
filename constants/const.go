@@ -7,31 +7,24 @@ import (
 
 var Program *tea.Program
 
-type keyMap struct {
-	NextBatch key.Binding
-	PrevBatch key.Binding
-}
-
-func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{
-		k.NextBatch,
-		k.PrevBatch,
-	}
-}
-
-func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{k.NextBatch, k.PrevBatch},
-	}
-}
-
-var ViewTableKeyMap = keyMap{
-	NextBatch: key.NewBinding(
+var TableViewKeyMap = []key.Binding{
+	key.NewBinding(
 		key.WithKeys("right", "l"),
 		key.WithHelp("->/l", "next batch of diets"),
 	),
-	PrevBatch: key.NewBinding(
+	key.NewBinding(
 		key.WithKeys("left", "h"),
 		key.WithHelp("<-/h", "previous batch of diets"),
+	),
+}
+
+var DayViewKeyMap = []key.Binding{
+	key.NewBinding(
+		key.WithKeys("right", "l"),
+		key.WithHelp("->/l", "diet summary for the next day"),
+	),
+	key.NewBinding(
+		key.WithKeys("left", "h"),
+		key.WithHelp("<-/h", "diet summary for the previous day"),
 	),
 }

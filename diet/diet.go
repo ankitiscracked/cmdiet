@@ -45,7 +45,7 @@ type DietServiceImpl struct {
 	DB *gorm.DB
 }
 
-func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string, calories int, source string) error {
+func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string, calories int, source string, logForDate time.Time) error {
 	if !ValidMealType(mealType) {
 		return fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
 	}
@@ -64,12 +64,12 @@ func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string,
 		log.Fatal(err)
 	}
 
-	insertDiet(d.DB, int64(meal.Id), mealType, source)
+	insertDiet(d.DB, int64(meal.Id), mealType, source, logForDate)
 	fmt.Println("Diet logged successfully")
 	return nil
 }
 
-func (d *DietServiceImpl) LogDietWithExistingMeal(mealId int64, mealType MealType, source string) error {
+func (d *DietServiceImpl) LogDietWithExistingMeal(mealId int64, mealType MealType, source string, logForDate time.Time) error {
 	logged, err := d.MealTypeLoggedForToday(mealType)
 	if err != nil {
 		return err
@@ -84,17 +84,21 @@ func (d *DietServiceImpl) LogDietWithExistingMeal(mealId int64, mealType MealTyp
 		return err
 	}
 
-	insertDiet(d.DB, mealId, mealType, source)
+	insertDiet(d.DB, mealId, mealType, source, logForDate)
 	fmt.Println("Diet logged successfully")
 	return nil
 }
 
-func insertDiet(db *gorm.DB, mealId int64, mealType MealType, source string) (Diet, error) {
-	diet := Diet{MealId: mealId, MealType: mealType.String(), Source: source, Timestamp: time.Now().UnixMilli()}
-	if err := db.Create(&diet).Error; err != nil {
-		return diet, fmt.Errorf("couldn't log diet %v", err)
+func (d *DietServiceImpl) GetDietsForDay(day time.Time) ([]Diet, error) {
+	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	end := start.Add(24 * time.Hour)
+
+	var diets []Diet
+	err := d.DB.Find(&diets, "timestamp between ? and ?", start.UnixMilli(), end.UnixMilli()).Error
+	if err != nil {
+		return nil, fmt.Errorf("couldn't fetch diets %v", err)
 	}
-	return diet, nil
+	return diets, nil
 }
 
 func (d *DietServiceImpl) GetDayDietsByOffset(offset int, timestamp int64) ([]DayDiet, error) {
@@ -126,6 +130,65 @@ func (d *DietServiceImpl) GetBatchedDayDiets(afterUnixMilli int64, beforeUnixMil
 		return nil, fmt.Errorf("couldn't get the diets of the day %v", err)
 	}
 	return weeklyDiets(dietMap), nil
+}
+
+func (d *DietServiceImpl) MealTypeLoggedForToday(mealType MealType) (bool, error) {
+	if !ValidMealType(mealType) {
+		return false, fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
+	}
+	var count int64
+	start, end := timeStampRangeForToday()
+	if err := d.DB.Model(&Diet{}).Where("meal_type = ? and timestamp between ? and ?", mealType.String(), start, end).Count(&count).Error; err != nil {
+		log.Fatal(err)
+	}
+	return count > 0, nil
+}
+
+func (d *DietServiceImpl) EarliestDietTimestamp() int64 {
+	var earliest int64
+	err := d.DB.Table("diets").Select("min(timestamp)").Scan(&earliest).Error
+	if err != nil {
+		log.Fatal(err)
+	}
+	return earliest
+}
+
+func ValidMealType(mealType MealType) bool {
+	switch mealType {
+	case Breakfast, Lunch, Dinner:
+		return true
+	default:
+		return false
+	}
+}
+
+func GetMealType(mealType string) (MealType, error) {
+	switch mealType {
+	case "breakfast":
+		return Breakfast, nil
+	case "lunch":
+		return Lunch, nil
+	case "dinner":
+		return Dinner, nil
+	default:
+		return 0, fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
+	}
+}
+
+func insertDiet(db *gorm.DB, mealId int64, mealType MealType, source string, logForDate time.Time) (Diet, error) {
+	diet := Diet{
+		MealId:         mealId,
+		MealType:       mealType.String(),
+		Source:         source,
+		Timestamp:      time.Now().UnixMilli(),
+		LoggedForDay:   logForDate.Day(),
+		LoggedForMonth: int(logForDate.Month()),
+		LoggedForYear:  logForDate.Year(),
+	}
+	if err := db.Create(&diet).Error; err != nil {
+		return diet, fmt.Errorf("couldn't log diet %v", err)
+	}
+	return diet, nil
 }
 
 func getBatchedDiets(afterUnixMilli int64, beforeUnixMilli int64, d *DietServiceImpl) ([]Diet, error) {
@@ -182,7 +245,6 @@ func weeklyDiets(dietMap map[string][]DietResp) []DayDiet {
 	return weekDiets
 }
 
-// instead of this, use the group by clause in the query
 func dietsOfDay(diets []Diet) (map[string][]DietResp, error) {
 	dietMap := make(map[string][]DietResp)
 
@@ -198,52 +260,9 @@ func dietsOfDay(diets []Diet) (map[string][]DietResp, error) {
 	return dietMap, nil
 }
 
-func (d *DietServiceImpl) MealTypeLoggedForToday(mealType MealType) (bool, error) {
-	if !ValidMealType(mealType) {
-		return false, fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
-	}
-	var count int64
-	start, end := timeStampRangeForToday()
-	if err := d.DB.Model(&Diet{}).Where("meal_type = ? and timestamp between ? and ?", mealType.String(), start, end).Count(&count).Error; err != nil {
-		log.Fatal(err)
-	}
-	return count > 0, nil
-}
-
 func timeStampRangeForToday() (int64, int64) {
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, now.Location())
 	return startOfDay.UnixMilli(), endOfDay.UnixMilli()
-}
-
-func (d *DietServiceImpl) EarliestDietTimestamp() int64 {
-	var earliest int64
-	err := d.DB.Table("diets").Select("min(timestamp)").Scan(&earliest).Error
-	if err != nil {
-		log.Fatal(err)
-	}
-	return earliest
-}
-
-func ValidMealType(mealType MealType) bool {
-	switch mealType {
-	case Breakfast, Lunch, Dinner:
-		return true
-	default:
-		return false
-	}
-}
-
-func GetMealType(mealType string) (MealType, error) {
-	switch mealType {
-	case "breakfast":
-		return Breakfast, nil
-	case "lunch":
-		return Lunch, nil
-	case "dinner":
-		return Dinner, nil
-	default:
-		return 0, fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
-	}
 }

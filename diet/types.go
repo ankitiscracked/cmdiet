@@ -3,10 +3,13 @@ package diet
 import "cmdiet/meals"
 
 type Diet struct {
-	MealId    int64
-	MealType  string
-	Source    string
-	Timestamp int64
+	MealId         int64
+	MealType       string
+	Source         string
+	Timestamp      int64
+	LoggedForDay   int
+	LoggedForMonth int
+	LoggedForYear  int
 }
 
 type DietResp struct {

@@ -35,8 +35,11 @@ func openDatabse(isFake bool) (*gorm.DB, error) {
 }
 
 func main() {
+	flag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
+
 	fake := flag.Bool("fake", false, "Use this flag to initialize a fake database")
 	flag.IntP("offset", "o", 7, "Use this flag to set the offset for viewing meals")
+	flag.BoolP("today", "t", false, "Use this flag to view today's log summary")
 	flag.Parse()
 
 	database, err := openDatabse(*fake)

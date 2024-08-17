@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
-	"github.com/charmbracelet/bubbles/cursor"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -37,17 +36,16 @@ type (
 	errMsg error
 	model  struct {
 		focusIndex int
-		inputs     []textinput.Model
 		err        error
-		cursorMode cursor.Mode
-		mealType   string
+		mealType   diet.MealType
 		form       *huh.Form
 		quitting   bool
+		logForDate time.Time
 	}
 )
 
-func NewDietModel(mealType string) model {
-	m := model{mealType: mealType}
+func NewDietModel(mealType diet.MealType, logForDate time.Time) model {
+	m := model{mealType: mealType, logForDate: logForDate}
 	m.form = createForm(
 		huh.NewInput().Title("Enter the meal name").Value(&meal),
 	)
@@ -113,9 +111,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		var logError error
 		if mealId != 0 {
-			logError = diet.DS.LogDietWithExistingMeal(int64(mealId), m.mealType, source)
+			logError = diet.DS.LogDietWithExistingMeal(int64(mealId), m.mealType, source, m.logForDate)
 		} else {
-			logError = diet.DS.LogDietWithNewMeal(m.mealType, meal, i, source)
+			logError = diet.DS.LogDietWithNewMeal(m.mealType, meal, i, source, m.logForDate)
 		}
 		if logError != nil {
 			log.Fatal(logError)
@@ -130,19 +128,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.quitting {
-		successText := lipgloss.NewStyle().Foreground(lipgloss.Color("#874BFC")).Bold(true).Render("Keep logging, keep growing!")
-		return lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#32de84")).
-			Padding(2).
-			Render(successText) + "\n\n"
+		return TerminalInfo("Keep logging, keep growing!")
 	}
+
 	return "\n" + lipgloss.NewStyle().
 		MarginLeft(2).
 		Padding(0, 1).
 		Foreground(lipgloss.Color("#ffffff")).
 		Background(lipgloss.Color("#6C50FF")).
-		Render(fmt.Sprintf("Let's log your %s", m.mealType)) +
+		Render(fmt.Sprintf("Let's log your %s for %s", m.mealType, m.logForDate.Format("02 Jan"))) +
 		"\n\n" +
 		formStyle.Render(m.form.View())
 }

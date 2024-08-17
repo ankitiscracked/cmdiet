@@ -23,13 +23,14 @@ type summary struct {
 }
 
 type tableModel struct {
-	table          table.Model
-	summary        *summary
-	startTimestamp int64
-	endTimestamp   int64
-	batchCount     int
-	quitting       bool
-	help           help.Model
+	table                 table.Model
+	summary               *summary
+	startTimestamp        int64
+	endTimestamp          int64
+	batchCount            int
+	quitting              bool
+	help                  help.Model
+	earliestDietTimestamp int64
 }
 
 var baseStyle = lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240"))
@@ -55,10 +56,18 @@ func (m tableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "h", "left":
 			endTimestamp := m.startTimestamp
 			startTimestamp := time.UnixMilli(m.startTimestamp).AddDate(0, 0, -m.batchCount).UnixMilli()
+
+			if time.UnixMilli(endTimestamp).Before(time.UnixMilli(m.earliestDietTimestamp)) {
+				return m, nil
+			}
 			updateTableAndBatchTimeRange(startTimestamp, endTimestamp, &m)
 		case "l", "right":
 			startTimestamp := m.endTimestamp
 			endTimestamp := time.UnixMilli(m.endTimestamp).AddDate(0, 0, m.batchCount).UnixMilli()
+
+			if time.UnixMilli(startTimestamp).After(time.Now()) {
+				return m, nil
+			}
 			updateTableAndBatchTimeRange(startTimestamp, endTimestamp, &m)
 		}
 		m.table, cmd = m.table.Update(msg)
@@ -71,11 +80,9 @@ func updateTableAndBatchTimeRange(startTimestamp int64, endTimestamp int64, m *t
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(table.Rows()) != 0 {
-		m.startTimestamp = startTimestamp
-		m.endTimestamp = endTimestamp
-		m.table = table
-	}
+	m.startTimestamp = startTimestamp
+	m.endTimestamp = endTimestamp
+	m.table = table
 }
 
 func (m tableModel) View() string {
@@ -95,7 +102,7 @@ func (m tableModel) View() string {
 	if m.summary != nil {
 		fmt.Fprintf(&builder, "Total calories: %d kcal, Total protein: %d grams, Total carbs: %d grams, Total fat: %d grams\n", m.summary.totlaCalories, m.summary.totalProtein, m.summary.totalCarbs, m.summary.totalFat)
 	}
-	builder.WriteString("\n\n" + m.help.View(constants.ViewTableKeyMap))
+	builder.WriteString("\n\n" + m.help.ShortHelpView(constants.TableViewKeyMap))
 	return builder.String()
 }
 
@@ -105,8 +112,16 @@ func ViewWeeklyDiet(weeklyDiet []diet.DayDiet, offset int) tableModel {
 	t := createTable(weeklyDiet)
 	summary := BatchedDietsSummary(weeklyDiet)
 
+	earliestDietTimestamp := diet.DS.EarliestDietTimestamp()
 	return tableModel{
-		t, summary, startTimestamp, endTimestamp, offset, false, help.New(),
+		table:                 t,
+		summary:               summary,
+		startTimestamp:        startTimestamp,
+		endTimestamp:          endTimestamp,
+		batchCount:            offset,
+		quitting:              false,
+		help:                  help.New(),
+		earliestDietTimestamp: earliestDietTimestamp,
 	}
 }
 

@@ -4,10 +4,13 @@ import (
 	"cmdiet/diet"
 	"cmdiet/ui"
 	"log"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
+
+var daysInPast int
 
 var logCmd = &cobra.Command{
 	Use:   "log [breakfast | lunch | snacks | dinner]",
@@ -29,7 +32,18 @@ var logCmd = &cobra.Command{
 			log.Fatal("You have already logged your " + mealType + " for today.")
 		}
 
-		program := tea.NewProgram(ui.NewDietModel(mealType))
+		if daysInPast < 0 {
+			log.Fatal("You can't log diets for future dates, duh!")
+		}
+
+		var logForDate time.Time
+		if daysInPast != 0 {
+			logForDate = time.Now().AddDate(0, 0, -daysInPast)
+		} else {
+			logForDate = time.Now()
+		}
+
+		program := tea.NewProgram(ui.NewDietModel(res, logForDate))
 		if _, err := program.Run(); err != nil {
 			log.Fatal(err)
 		}
@@ -37,5 +51,6 @@ var logCmd = &cobra.Command{
 }
 
 func init() {
+	logCmd.Flags().IntVarP(&daysInPast, "pdays", "d", 0, "Number of days in the past to log")
 	RootCmd.AddCommand(logCmd)
 }
