@@ -5,7 +5,6 @@ import (
 	"cmdiet/meals"
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,8 +32,7 @@ var (
 )
 
 type (
-	errMsg error
-	model  struct {
+	model struct {
 		focusIndex int
 		err        error
 		mealType   diet.MealType
@@ -105,15 +103,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.form.State == huh.StateCompleted {
-		i, err := strconv.Atoi(calories)
-		if err != nil {
-			m.err = fmt.Errorf("calories must be a number")
-		}
 		var logError error
 		if mealId != 0 {
 			logError = diet.DS.LogDietWithExistingMeal(int64(mealId), m.mealType, source, m.logForDate)
 		} else {
-			logError = diet.DS.LogDietWithNewMeal(m.mealType, meal, i, source, m.logForDate)
+			logError = diet.DS.LogDietWithNewMeal(m.mealType, meal, source, m.logForDate)
 		}
 		if logError != nil {
 			log.Fatal(logError)

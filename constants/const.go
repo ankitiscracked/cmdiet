@@ -3,9 +3,11 @@ package constants
 import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/go-playground/validator/v10"
 )
 
 var Program *tea.Program
+var Validator *validator.Validate
 
 var TableViewKeyMap = []key.Binding{
 	key.NewBinding(

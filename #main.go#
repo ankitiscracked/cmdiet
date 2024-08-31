@@ -3,13 +3,11 @@ package main
 import (
 	"cmdiet/commands"
 	_ "cmdiet/commands" // This imports the commands package to ensure the init functions are called
-	"cmdiet/constants"
 	"cmdiet/diet"
 	"cmdiet/meals"
 	"fmt"
 	"log"
 
-	"github.com/go-playground/validator/v10"
 	flag "github.com/spf13/pflag"
 
 	"gorm.io/driver/sqlite"
@@ -52,7 +50,6 @@ func main() {
 	diet.DS = &diet.DietServiceImpl{DB: database}
 	meals.MS = &meals.MealServiceImpl{DB: database}
 
-	constants.Validator = validator.New(validator.WithRequiredStructEnabled())
 	if err := commands.Execute(); err != nil {
 		log.Fatal(err)
 	}

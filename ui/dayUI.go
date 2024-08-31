@@ -146,10 +146,10 @@ func getTotalMacros(diets []diet.Diet) totalMacros {
 			log.Fatal(err)
 		}
 
-		totalCalories += int(meal.Calories)
-		totalProtein += int(meal.Protein)
-		totalCarbs += int(meal.Carbs)
-		totalFat += int(meal.Fat)
+		totalCalories += int(meal.GetTotalCalories())
+		totalProtein += int(meal.GetMealMacro(meals.Protein))
+		totalCarbs += int(meal.GetMealMacro(meals.Carbs))
+		totalFat += int(meal.GetMealMacro(meals.Fat))
 	}
 	return totalMacros{totalCalories, totalProtein, totalCarbs, totalFat}
 }
@@ -169,7 +169,7 @@ func getMealRow(meal meals.Meal, mealType string) string {
 			return style
 		}).
 		Headers(headers...).
-		Row(mealType, meal.Name, fmt.Sprintf("%d", meal.Calories), fmt.Sprintf("%d", meal.Protein), fmt.Sprintf("%d", meal.Carbs), fmt.Sprintf("%d", meal.Fat)).
+		Row(mealType, meal.Name, fmt.Sprintf("%d", meal.GetTotalCalories()), fmt.Sprintf("%d", meal.GetMealMacro(meals.Protein)), fmt.Sprintf("%d", meal.GetMealMacro(meals.Carbs)), fmt.Sprintf("%d", meal.GetMealMacro(meals.Fat))).
 		String()
 }
 

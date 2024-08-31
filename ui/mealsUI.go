@@ -13,15 +13,20 @@ import (
 )
 
 var (
+	mealToUpdate     selectedMeal
 	listStyle        = lipgloss.NewStyle().Margin(1, 2)
 	mealEditingStyle = lipgloss.NewStyle()
 )
 
 var (
-	mealToUpdate   mealFormValues
 	windowSizeMsg  tea.WindowSizeMsg
 	formInputIndex = 0
 )
+
+type selectedMeal struct {
+	MealName       string
+	MealComponents []mealComponent
+}
 
 type listItem struct {
 	title, desc string
@@ -47,12 +52,10 @@ type mealsModel struct {
 	quitting   bool
 }
 
-type mealFormValues struct {
-	name     string
-	calories string
-	protein  string
-	carbs    string
-	fats     string
+type mealComponent struct {
+	ComponentId   int
+	ComponentType meals.MealComponentType
+	Amount        string
 }
 
 type errorMsg struct {
@@ -135,15 +138,27 @@ func (m mealsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func updateMealCmd(m mealsModel) tea.Cmd {
 	return func() tea.Msg {
 		selectedItem := m.list.SelectedItem().(listItem)
-		meal := meals.Meal{
-			Id:       selectedItem.mealId,
-			Name:     mealToUpdate.name,
-			Calories: atoiIgnoreError(mealToUpdate.calories),
-			Protein:  atoiIgnoreError(mealToUpdate.protein),
-			Carbs:    atoiIgnoreError(mealToUpdate.carbs),
-			Fat:      atoiIgnoreError(mealToUpdate.fats),
+		payload := meals.MealPayload{
+			Name:       mealToUpdate.MealName,
+			Components: make([]meals.MealComponent, 0),
 		}
-		if err := meals.MS.UpdateMeal(meal); err != nil {
+
+		for _, component := range mealToUpdate.MealComponents {
+			componentPayload := meals.MealComponent{
+				Type: component.ComponentType,
+				Id:   component.ComponentId,
+			}
+
+			if component.ComponentType == meals.FixedMealComponentType {
+				componentPayload.Count = atoiIgnoreError(component.Amount)
+			} else {
+				componentPayload.AmountInGrams = atoiIgnoreError(component.Amount)
+			}
+
+			payload.Components = append(payload.Components, componentPayload)
+		}
+
+		if _, err := meals.MS.UpdateMeal(selectedItem.mealId, payload); err != nil {
 			return errorMsg{err}
 		}
 		return refreshMealListMsg{}
@@ -160,17 +175,32 @@ func createDetailForm(selectedMeal listItem) *huh.Form {
 	if err != nil {
 		log.Fatal(err)
 	}
-	mealToUpdate = mealFormValues{name: meal.Name, calories: strconv.Itoa(meal.Calories), protein: strconv.Itoa(meal.Protein), carbs: strconv.Itoa(meal.Carbs), fats: strconv.Itoa(meal.Fat)}
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().Title("Meal name").Value(&mealToUpdate.name),
-			huh.NewInput().Title("Calories").Value(&mealToUpdate.calories),
-			huh.NewInput().Title("Protein").Value(&mealToUpdate.protein),
-			huh.NewInput().Title("Carbs").Value(&mealToUpdate.carbs),
-			huh.NewInput().Title("Fats").Value(&mealToUpdate.fats),
-		).Title("Let's update your meal"),
+	var formGruops []*huh.Group
+	formGruops = append(
+		formGruops, huh.NewGroup(
+			huh.NewInput().Title("Meal name").Value(&mealToUpdate.MealName),
+		),
 	)
+	for _, fixedComponent := range meal.FixedComponentData {
+		mealToUpdate.MealComponents = append(mealToUpdate.MealComponents, mealComponent{ComponentId: fixedComponent.Id, Amount: strconv.Itoa(fixedComponent.Amount)})
+		formGruops = append(formGruops, huh.NewGroup(
+			huh.NewInput().
+				Title("Count").
+				Value(&mealToUpdate.MealComponents[len(mealToUpdate.MealComponents)-1].Amount),
+		).Title(fixedComponent.Component.Name))
+	}
+
+	for _, variableComponent := range meal.VariableComponentData {
+		mealToUpdate.MealComponents = append(mealToUpdate.MealComponents, mealComponent{ComponentId: variableComponent.Id, Amount: strconv.Itoa(variableComponent.AmountInGrams)})
+		formGruops = append(formGruops, huh.NewGroup(
+			huh.NewInput().
+				Title("Amount in grams").
+				Value(&mealToUpdate.MealComponents[len(mealToUpdate.MealComponents)-1].Amount),
+		).Title(variableComponent.Component.Name))
+	}
+
+	form := huh.NewForm(formGruops...)
 	return form
 }
 
@@ -195,7 +225,7 @@ func mealListItems() ([]list.Item, error) {
 	for _, meal := range allMeals {
 		items = append(items, listItem{
 			title:  meal.Name,
-			desc:   fmt.Sprintf("Calories: %s | Protein: %s | Carbs: %s | Fats: %s", strconv.Itoa(meal.Calories), strconv.Itoa(meal.Protein), strconv.Itoa(meal.Carbs), strconv.Itoa(meal.Fat)),
+			desc:   fmt.Sprintf("Calories: %s | Protein: %s | Carbs: %s | Fats: %s", strconv.Itoa(meal.GetTotalCalories()), strconv.Itoa(meal.GetMealMacro(meals.Protein)), strconv.Itoa(meal.GetMealMacro(meals.Carbs)), strconv.Itoa(meal.GetMealMacro(meals.Fat))),
 			mealId: meal.Id,
 		})
 	}

@@ -45,7 +45,7 @@ type DietServiceImpl struct {
 	DB *gorm.DB
 }
 
-func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string, calories int, source string, logForDate time.Time) error {
+func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string, source string, logForDate time.Time) error {
 	if !ValidMealType(mealType) {
 		return fmt.Errorf("invalid meal type %v, please use breakfast, lunch, snacks, or dinner", mealType)
 	}
@@ -59,7 +59,7 @@ func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string,
 		return errors.New("meal type already logged for today")
 	}
 
-	meal, err := meals.MS.AddMeal(mealName, calories)
+	meal, err := meals.MS.AddMeal(mealName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -209,14 +209,17 @@ returns tabular view of the details of the diets
 func weeklyDiets(dietMap map[string][]DietResp) []DayDiet {
 	var weekDiets []DayDiet
 	for day, diets := range dietMap {
-		var d DayDiet
-		var totalCalories int
+
+		var (
+			d             DayDiet
+			totalProtein  int
+			totalCarbs    int
+			totalFat      int
+			totalCalories int
+		)
 
 		d.Day = day
 		for _, diet := range diets {
-			d.Protein = int(diet.Meal.Protein)
-			d.Carbs = int(diet.Meal.Carbs)
-			d.Fat = int(diet.Meal.Fat)
 			switch diet.MealType {
 			case "breakfast":
 				d.Breakfast = diet.Meal.Name
@@ -226,7 +229,10 @@ func weeklyDiets(dietMap map[string][]DietResp) []DayDiet {
 				d.Dinner = diet.Meal.Name
 			}
 
-			totalCalories += diet.Meal.Calories
+			totalProtein += diet.Meal.GetMealMacro(meals.Protein)
+			totalCarbs += diet.Meal.GetMealMacro(meals.Carbs)
+			totalFat += diet.Meal.GetMealMacro(meals.Fat)
+			totalCalories += diet.Meal.GetTotalCalories()
 		}
 		d.TotalCalories = totalCalories
 

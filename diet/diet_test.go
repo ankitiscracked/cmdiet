@@ -36,10 +36,10 @@ func TestLogRepeatedMeal(t *testing.T) {
 	meals.MS = &meals.MealServiceImpl{DB: db}
 	dietService := &DietServiceImpl{DB: db}
 
-	err = dietService.LogDietWithNewMeal(Breakfast, "eggs", 200, "home")
+	err = dietService.LogDietWithNewMeal(Breakfast, "eggs", "home", time.Now())
 	assert.Nil(t, err)
 
-	err = dietService.LogDietWithNewMeal(Breakfast, "eggs", 200, "home")
+	err = dietService.LogDietWithNewMeal(Breakfast, "eggs", "home", time.Now())
 	assert.NotNil(t, err)
 }
 
@@ -52,7 +52,7 @@ func TestLogWithInvalidMeal(t *testing.T) {
 	meals.MS = &meals.MealServiceImpl{DB: db}
 	dietService := &DietServiceImpl{DB: db}
 
-	err = dietService.LogDietWithExistingMeal(1, Breakfast, "home")
+	err = dietService.LogDietWithExistingMeal(1, Breakfast, "home", time.Now())
 	assert.NotNil(t, err)
 }
 
@@ -66,7 +66,7 @@ func TestLogInputs(t *testing.T) {
 	meals.MS = &meals.MealServiceImpl{DB: db}
 
 	t.Run("should throw for unsupported meal type", func(t *testing.T) {
-		err := dietService.LogDietWithNewMeal(0, "eggs", 200, "home")
+		err := dietService.LogDietWithNewMeal(0, "eggs", "home", time.Now())
 		assert.NotNil(t, err)
 	})
 
@@ -90,9 +90,9 @@ func TestFechingDiets(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(diets))
 
-	dietService.LogDietWithNewMeal(Breakfast, "eggs", 200, "home")
-	dietService.LogDietWithNewMeal(Lunch, "eggs", 200, "home")
-	dietService.LogDietWithNewMeal(Dinner, "eggs", 200, "home")
+	dietService.LogDietWithNewMeal(Breakfast, "eggs", "home", time.Now())
+	dietService.LogDietWithNewMeal(Lunch, "eggs", "home", time.Now())
+	dietService.LogDietWithNewMeal(Dinner, "eggs", "home", time.Now())
 	diets, err = dietService.GetDietsForDay(time.Now())
 
 	assert.Nil(t, err)
