@@ -64,7 +64,7 @@ func (d *DietServiceImpl) LogDietWithNewMeal(mealType MealType, mealName string,
 		log.Fatal(err)
 	}
 
-	insertDiet(d.DB, int64(meal.Id), mealType, source, logForDate)
+	insertDiet(d.DB, int64(meal.ID), mealType, source, logForDate)
 	fmt.Println("Diet logged successfully")
 	return nil
 }

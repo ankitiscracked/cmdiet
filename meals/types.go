@@ -2,16 +2,15 @@ package meals
 
 import "gorm.io/gorm"
 
-type MealComponentType int
+type MealComponentType string
 
 const (
-	FixedMealComponentType MealComponentType = iota
-	VariableMealComponentType
+	FixedMealComponentType    MealComponentType = "fixed"
+	VariableMealComponentType MealComponentType = "variable"
 )
 
 type Meal struct {
 	gorm.Model
-	Id                    int
 	Name                  string
 	FixedComponentData    []FixedMealComponentData
 	VariableComponentData []VariableMealComponentData
@@ -35,34 +34,40 @@ type VariableMealComponent struct {
 
 type FixedMealComponentData struct {
 	gorm.Model
-	Id        int
-	Component FixedMealComponent
-	Amount    int
+	ComponentID int
+	Component   FixedMealComponent `gorm:"foreignKey:ComponentID"`
+	Amount      int
+	MealID      uint
 }
 
 type VariableMealComponentData struct {
 	gorm.Model
-	Id            int
-	Component     VariableMealComponent
+	ComponentID   int
+	Component     VariableMealComponent `gorm:"foreignKey:ComponentID"`
 	AmountInGrams int
+	MealID        uint
 }
 
 type MealComponent struct {
 	Name          string
-	Type          MealComponentType `validate:"required"`
+	Type          MealComponentType `validate:"required,oneof=fixed variable"`
 	Id            int               `validate:"required"`
-	Count         int               `validate:"required_without=amountInGrams"`
-	AmountInGrams int               `validate:"required_without=count"`
+	Count         int               `validate:"required_without=AmountInGrams"`
+	AmountInGrams int               `validate:"required_without=Count"`
 }
 
 type MealComponentInput struct {
-	Name          string
-	Type          MealComponentType
-	Id            int
-	Count         string
-	AmountInGrams string
+	Name   string
+	Type   MealComponentType
+	Id     int
+	Amount string
 }
 type MealPayload struct {
 	Name       string          `validate:"required"`
 	Components []MealComponent `validate:"required,dive"`
+}
+
+type UpdateMealPayload struct {
+	Name       string
+	Components []MealComponent
 }

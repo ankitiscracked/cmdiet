@@ -28,7 +28,13 @@ func openDatabse(isFake bool) (*gorm.DB, error) {
 		return db, fmt.Errorf("couldn't open the database: %w", err)
 	}
 
-	err = db.AutoMigrate(&meals.Meal{}, &diet.Diet{})
+	err = db.AutoMigrate(
+		&meals.FixedMealComponent{},
+		&meals.VariableMealComponent{},
+		&meals.FixedMealComponentData{},
+		&meals.VariableMealComponentData{},
+		&meals.Meal{},
+		&diet.Diet{})
 	if err != nil {
 		return db, fmt.Errorf("couldn't migrate the database: %w", err)
 	}
@@ -51,8 +57,10 @@ func main() {
 
 	diet.DS = &diet.DietServiceImpl{DB: database}
 	meals.MS = &meals.MealServiceImpl{DB: database}
+	meals.MCS = &meals.MealComponentService{DB: database}
 
 	constants.Validator = validator.New(validator.WithRequiredStructEnabled())
+	constants.Validator.RegisterValidation("mealComponentType", meals.ValidateMealComponentType)
 	if err := commands.Execute(); err != nil {
 		log.Fatal(err)
 	}

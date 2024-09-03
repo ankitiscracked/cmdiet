@@ -158,7 +158,7 @@ func updateMealCmd(m mealsModel) tea.Cmd {
 			payload.Components = append(payload.Components, componentPayload)
 		}
 
-		if _, err := meals.MS.UpdateMeal(selectedItem.mealId, payload); err != nil {
+		if _, err := meals.MS.UpdateMeal(selectedItem.mealId, meals.UpdateMealPayload(payload)); err != nil {
 			return errorMsg{err}
 		}
 		return refreshMealListMsg{}
@@ -183,7 +183,7 @@ func createDetailForm(selectedMeal listItem) *huh.Form {
 		),
 	)
 	for _, fixedComponent := range meal.FixedComponentData {
-		mealToUpdate.MealComponents = append(mealToUpdate.MealComponents, mealComponent{ComponentId: fixedComponent.Id, Amount: strconv.Itoa(fixedComponent.Amount)})
+		mealToUpdate.MealComponents = append(mealToUpdate.MealComponents, mealComponent{ComponentId: int(fixedComponent.ID), Amount: strconv.Itoa(fixedComponent.Amount)})
 		formGruops = append(formGruops, huh.NewGroup(
 			huh.NewInput().
 				Title("Count").
@@ -192,7 +192,7 @@ func createDetailForm(selectedMeal listItem) *huh.Form {
 	}
 
 	for _, variableComponent := range meal.VariableComponentData {
-		mealToUpdate.MealComponents = append(mealToUpdate.MealComponents, mealComponent{ComponentId: variableComponent.Id, Amount: strconv.Itoa(variableComponent.AmountInGrams)})
+		mealToUpdate.MealComponents = append(mealToUpdate.MealComponents, mealComponent{ComponentId: int(variableComponent.ID), Amount: strconv.Itoa(variableComponent.AmountInGrams)})
 		formGruops = append(formGruops, huh.NewGroup(
 			huh.NewInput().
 				Title("Amount in grams").
@@ -226,7 +226,7 @@ func mealListItems() ([]list.Item, error) {
 		items = append(items, listItem{
 			title:  meal.Name,
 			desc:   fmt.Sprintf("Calories: %s | Protein: %s | Carbs: %s | Fats: %s", strconv.Itoa(meal.GetTotalCalories()), strconv.Itoa(meal.GetMealMacro(meals.Protein)), strconv.Itoa(meal.GetMealMacro(meals.Carbs)), strconv.Itoa(meal.GetMealMacro(meals.Fat))),
-			mealId: meal.Id,
+			mealId: int(meal.ID),
 		})
 	}
 	return items, nil

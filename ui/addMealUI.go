@@ -3,6 +3,7 @@ package ui
 import (
 	"cmdiet/meals"
 	"fmt"
+	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -13,93 +14,76 @@ type AddMealModel struct {
 	form               *huh.Form
 	err                error
 	done               bool
-	result             meals.Meal
-	components         []meals.MealComponentInput
+	componentsOptions  []meals.MealComponentInput
 	selectedComponents []meals.MealComponentInput
-	componentAmount    float64
+	mealName           string
 }
 
 func NewAddMealModel() *AddMealModel {
 	m := &AddMealModel{}
-	m.initForm()
+	m.componentsOptions, _ = meals.MCS.GetAllMealComponents()
+	m.selectedComponents = append(m.selectedComponents, meals.MealComponentInput{})
+	m.createForm(m.selectedComponents)
 	return m
 }
 
-func (m *AddMealModel) createComponentFormGroups() []*huh.Group {
-	var groups []*huh.Group
+func (m *AddMealModel) createForm(selectedComponents []meals.MealComponentInput) {
+	nameInput := huh.NewInput().
+		Title("Meal Name").
+		Description("Enter the name of the meal").
+		Placeholder("e.g. Chicken Salad").
+		Validate(func(s string) error {
+			if s == "" {
+				return fmt.Errorf("meal name cannot be empty")
+			}
+			return nil
+		}).
+		Value(&m.mealName)
 
-	for _, comp := range m.selectedComponents {
-		selectedComp := &comp
-		var amountField huh.Field
+	m.form = huh.NewForm(m.createFormGroup(nameInput))
+}
 
-		switch comp.Type {
-		case meals.FixedMealComponentType:
-			amountField = huh.NewInput().
-				Title("Count").
-				Description(fmt.Sprintf("Enter the count for %s", comp.Name)).
-				Placeholder("e.g. 2").
+func (m *AddMealModel) createFormGroup(nameField *huh.Input) *huh.Group {
+	var inputs []huh.Field
+
+	for i := range m.selectedComponents {
+		comp := &m.selectedComponents[i]
+		componentOptions := m.getComponentOptions()
+
+		inputs = append(
+			inputs,
+			huh.NewSelect[meals.MealComponentInput]().
+				Title("Component").
+				Options(componentOptions...).
+				Value(comp),
+
+			huh.NewInput().
+				Title("Amount").
+				Description(fmt.Sprintf("Enter the amount for %s", comp.Name)).
+				Placeholder("e.g. 2 or 200 (gms)").
 				Validate(func(s string) error {
 					if s == "" {
 						return fmt.Errorf("count cannot be empty")
 					}
 					return nil
 				}).
-				Value(&comp.Count)
-		case meals.VariableMealComponentType:
-			amountField = huh.NewInput().
-				Title("Amount in grams").
-				Description(fmt.Sprintf("Enter the amount in grams for %s", comp.Name)).
-				Placeholder("e.g. 100").
-				Validate(func(s string) error {
-					if s == "" {
-						return fmt.Errorf("amount cannot be empty")
-					}
-					return nil
-				}).
-				Value(&comp.AmountInGrams)
-		}
-
-		componentOptions := m.getComponentOptions()
-		group := huh.NewGroup(
-			huh.NewSelect[*meals.MealComponentInput]().
-				Title("Component").
-				Options(componentOptions...).
-				Value(&selectedComp),
-			amountField,
-		).Title(comp.Name)
-
-		groups = append(groups, group)
+				Value(&comp.Amount))
 	}
 
-	return groups
+	return huh.NewGroup(append([]huh.Field{nameField}, inputs...)...)
 }
 
-func (m *AddMealModel) getComponentOptions() []huh.Option[*meals.MealComponentInput] {
-	options := []huh.Option[*meals.MealComponentInput]{}
-	for i := range m.components {
-		comp := &m.components[i]
-		options = append(options, huh.NewOption(comp.Name, comp))
+func (m *AddMealModel) getComponentOptions() []huh.Option[meals.MealComponentInput] {
+	options := make([]huh.Option[meals.MealComponentInput], 0, len(m.componentsOptions))
+	for i := range m.componentsOptions {
+		comp := &m.componentsOptions[i]
+		options = append(options, huh.NewOption(comp.Name, *comp))
 	}
 	return options
 }
 
-func (m *AddMealModel) initForm() {
-	m.form = huh.NewForm(m.createComponentFormGroups()...)
-}
-
 func (m *AddMealModel) Init() tea.Cmd {
-	return tea.Batch(
-		m.form.Init(),
-		m.fetchComponents,
-	)
-}
-
-func (m *AddMealModel) fetchComponents() tea.Msg {
-	components, err := meals.MS.GetAllMealComponents()
-	if err != nil {
-		return errMsg(err)
-	}
-	return componentsMsg{components: components}
+	return m.form.Init()
 }
 
 func (m *AddMealModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -108,10 +92,11 @@ func (m *AddMealModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "ctrl+n":
+			m.selectedComponents = append(m.selectedComponents, meals.MealComponentInput{})
+			m.createForm(m.selectedComponents)
+			m.form.Init()
 		}
-	case componentsMsg:
-		m.components = msg.components
-		m.initForm()
 	case errMsg:
 		m.err = msg
 		return m, tea.Quit
@@ -122,25 +107,42 @@ func (m *AddMealModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.form = f
 		if m.form.State == huh.StateCompleted {
 			m.done = true
-			return m, tea.Sequence(m.saveMeal, tea.Quit)
+
+			err := m.saveMeal()
+			if err != nil {
+				m.err = err
+				return m, nil
+			}
+
+			return m, tea.Quit
+
 		}
 	}
 	return m, cmd
 }
 
-func (m *AddMealModel) saveMeal() tea.Msg {
+func (m *AddMealModel) saveMeal() error {
 	payload := meals.MealPayload{
-		Name:       m.result.Name,
+		Name:       m.mealName,
 		Components: make([]meals.MealComponent, 0),
 	}
 
+	log.Println("component opitons: ", m.componentsOptions)
+	log.Println("selected components: ", m.selectedComponents)
 	for _, comp := range m.selectedComponents {
-		payload.Components = append(payload.Components, meals.MealComponent{
-			Id:            comp.Id,
-			Type:          comp.Type,
-			Count:         meals.AtoiIgnoreError(comp.Count),
-			AmountInGrams: meals.AtoiIgnoreError(comp.AmountInGrams),
-		})
+		mealComponent := meals.MealComponent{
+			Id:   comp.Id,
+			Type: comp.Type,
+		}
+
+		switch comp.Type {
+		case meals.FixedMealComponentType:
+			mealComponent.Count = meals.AtoiIgnoreError(comp.Amount)
+		case meals.VariableMealComponentType:
+			mealComponent.AmountInGrams = meals.AtoiIgnoreError(comp.Amount)
+		}
+
+		payload.Components = append(payload.Components, mealComponent)
 	}
 
 	_, err := meals.MS.AddMealWithComponents(payload)
@@ -155,11 +157,7 @@ func (m *AddMealModel) View() string {
 		return fmt.Sprintf("Error: %v\n", m.err)
 	}
 	if m.done {
-		return fmt.Sprintf("Added meal: %s\n", m.result.Name)
+		return fmt.Sprintf("Added meal: %s\n", m.mealName)
 	}
 	return m.form.View()
-}
-
-type componentsMsg struct {
-	components []meals.MealComponentInput
 }

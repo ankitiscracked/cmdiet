@@ -21,34 +21,34 @@ var listCmd = &cobra.Command{
 	},
 }
 
-var addCmd = &cobra.Command{
-	Use:   "add [meal|component]",
-	Short: "Add a new meal or meal component",
-	Args:  cobra.ExactArgs(1),
+var addMealCmd = &cobra.Command{
+	Use:   "add-meal",
+	Short: "Add a new meal",
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		var program *tea.Program
-		switch args[0] {
-		case "meal":
-			program = tea.NewProgram(ui.NewAddMealModel())
-		case "component":
-			var componentType meals.MealComponentType
-			fixed, _ := cmd.Flags().GetBool("fixed")
-			variable, _ := cmd.Flags().GetBool("variable")
-
-			if fixed && variable {
-				log.Fatal("Please specify either --fixed or --variable, not both.")
-			} else if fixed {
-				componentType = meals.FixedMealComponentType
-			} else if variable {
-				componentType = meals.VariableMealComponentType
-			} else {
-				log.Fatal("Please specify either --fixed or --variable flag.")
-			}
-			program = tea.NewProgram(ui.NewAddMealComponentModel(componentType))
-		default:
-			log.Fatal("Invalid argument. Use 'meal' or 'component'.")
+		program := tea.NewProgram(ui.NewAddMealModel())
+		if _, err := program.Run(); err != nil {
+			log.Fatal(err)
 		}
+	},
+}
+
+var addComponentCmd = &cobra.Command{
+	Use:   "add-component",
+	Short: "Add a new meal component",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		var componentType meals.MealComponentType
+		fixed, _ := cmd.Flags().GetBool("fixed")
+		variable, _ := cmd.Flags().GetBool("variable")
+
+		if fixed {
+			componentType = meals.FixedMealComponentType
+		} else if variable {
+			componentType = meals.VariableMealComponentType
+		}
+
+		program := tea.NewProgram(ui.NewAddMealComponentModel(componentType))
 		if _, err := program.Run(); err != nil {
 			log.Fatal(err)
 		}
@@ -61,7 +61,15 @@ var mealsCmd = &cobra.Command{
 }
 
 func init() {
+	fixed := "fixed"
+	variable := "variable"
+	addComponentCmd.Flags().BoolP(fixed, "f", false, "Add a fixed meal component")
+	addComponentCmd.Flags().BoolP(variable, "v", false, "Add a variable meal component")
+	addComponentCmd.MarkFlagsOneRequired(fixed, variable)
+	addComponentCmd.MarkFlagsMutuallyExclusive(fixed, variable)
+
 	mealsCmd.AddCommand(listCmd)
-	mealsCmd.AddCommand(addCmd)
+	mealsCmd.AddCommand(addMealCmd)
+	mealsCmd.AddCommand(addComponentCmd)
 	RootCmd.AddCommand(mealsCmd)
 }

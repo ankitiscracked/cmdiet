@@ -88,7 +88,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			var options []huh.Option[int]
 			for _, meal := range meals {
-				options = append(options, huh.NewOption(meal.Name, meal.Id))
+				options = append(options, huh.NewOption(meal.Name, int(meal.ID)))
 			}
 			mealInput := huh.NewSelect[int]().Title("Select one of your meals").Options(options...).Height(10).Value(&mealId)
 			m.form = createForm(mealInput)
