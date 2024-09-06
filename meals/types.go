@@ -57,10 +57,14 @@ type MealComponent struct {
 }
 
 type MealComponentInput struct {
-	Name   string
-	Type   MealComponentType
-	Id     int
-	Amount string
+	Name          string
+	Type          MealComponentType
+	Id            int
+	Amount        string
+	TotalCalories int
+	TotalProtein  int
+	TotalCarbs    int
+	TotalFat      int
 }
 type MealPayload struct {
 	Name       string          `validate:"required"`
@@ -70,4 +74,13 @@ type MealPayload struct {
 type UpdateMealPayload struct {
 	Name       string
 	Components []MealComponent
+}
+
+type UpdateMealComponentPayload struct {
+	ID      int
+	Type    MealComponentType
+	Name    string
+	Protein int
+	Carbs   int
+	Fat     int
 }

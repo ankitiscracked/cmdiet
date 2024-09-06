@@ -10,11 +10,23 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List all your logged meals",
+	Use:   "list-meals",
+	Short: "List all your meals",
 	Args:  cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		program := tea.NewProgram(ui.ViewMealsModel())
+		program := tea.NewProgram(ui.ListMealsModel())
+		if _, err := program.Run(); err != nil {
+			log.Fatal(err)
+		}
+	},
+}
+
+var listComponentsCmd = &cobra.Command{
+	Use:   "list-components",
+	Short: "List all your meal components",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		program := tea.NewProgram(ui.ListMealsComponentsModel())
 		if _, err := program.Run(); err != nil {
 			log.Fatal(err)
 		}
@@ -69,6 +81,7 @@ func init() {
 	addComponentCmd.MarkFlagsMutuallyExclusive(fixed, variable)
 
 	mealsCmd.AddCommand(listCmd)
+	mealsCmd.AddCommand(listComponentsCmd)
 	mealsCmd.AddCommand(addMealCmd)
 	mealsCmd.AddCommand(addComponentCmd)
 	RootCmd.AddCommand(mealsCmd)

@@ -34,6 +34,43 @@ func (m *MealComponentService) AddVariableMealComponent(mealComponent VariableMe
 	return mealComponent, nil
 }
 
+func (m *MealComponentService) UpdateMealComponent(componentId int, payload UpdateMealComponentPayload) error {
+	if err := constants.Validator.Struct(payload); err != nil {
+		return fmt.Errorf("invalid update payload: %v", err)
+	}
+
+	switch payload.Type {
+	case FixedMealComponentType:
+		var component FixedMealComponent
+		if err := m.DB.First(&component, componentId).Error; err != nil {
+			return fmt.Errorf("couldn't find fixed meal component: %v", err)
+		}
+		component.Name = payload.Name
+		component.Protein = payload.Protein
+		component.Carbs = payload.Carbs
+		component.Fat = payload.Fat
+		if err := m.DB.Save(&component).Error; err != nil {
+			return fmt.Errorf("couldn't update fixed meal component: %v", err)
+		}
+	case VariableMealComponentType:
+		var component VariableMealComponent
+		if err := m.DB.First(&component, componentId).Error; err != nil {
+			return fmt.Errorf("couldn't find variable meal component: %v", err)
+		}
+		component.Name = payload.Name
+		component.ProteinPerHundredGram = payload.Protein
+		component.CarbsPerHundredGram = payload.Carbs
+		component.FatPerHundredGram = payload.Fat
+		if err := m.DB.Save(&component).Error; err != nil {
+			return fmt.Errorf("couldn't update variable meal component: %v", err)
+		}
+	default:
+		return fmt.Errorf("invalid meal component type")
+	}
+
+	return nil
+}
+
 func (m *MealComponentService) GetFixedMealComponent(componentId int) (FixedMealComponent, error) {
 	var component FixedMealComponent
 	if err := m.DB.First(&component, componentId).Error; err != nil {
@@ -68,9 +105,13 @@ func (m *MealComponentService) GetAllMealComponents() ([]MealComponentInput, err
 	// Convert fixed components to MealComponentInput type
 	for _, fc := range fixedComponents {
 		components = append(components, MealComponentInput{
-			Name: fc.Name,
-			Type: FixedMealComponentType,
-			Id:   int(fc.ID),
+			Name:          fc.Name,
+			Type:          FixedMealComponentType,
+			Id:            int(fc.ID),
+			TotalCalories: fc.GetTotalCalories(1),
+			TotalProtein:  fc.Protein,
+			TotalCarbs:    fc.Carbs,
+			TotalFat:      fc.Fat,
 		})
 	}
 

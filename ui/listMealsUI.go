@@ -28,20 +28,20 @@ type selectedMeal struct {
 	MealComponents []mealComponent
 }
 
-type listItem struct {
+type mealListItem struct {
 	title, desc string
 	mealId      int
 }
 
-func (i listItem) Title() string {
+func (i mealListItem) Title() string {
 	return i.title
 }
 
-func (i listItem) Description() string {
+func (i mealListItem) Description() string {
 	return i.desc
 }
 
-func (i listItem) FilterValue() string {
+func (i mealListItem) FilterValue() string {
 	return i.title
 }
 
@@ -89,7 +89,7 @@ func (m mealsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.quitting = true
 				return m, tea.Quit
 			case "enter":
-				selectedItem := m.list.SelectedItem().(listItem)
+				selectedItem := m.list.SelectedItem().(mealListItem)
 				m.detailForm = createDetailForm(selectedItem)
 				m.editing = true
 				return m, m.detailForm.Init()
@@ -137,7 +137,7 @@ func (m mealsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func updateMealCmd(m mealsModel) tea.Cmd {
 	return func() tea.Msg {
-		selectedItem := m.list.SelectedItem().(listItem)
+		selectedItem := m.list.SelectedItem().(mealListItem)
 		payload := meals.MealPayload{
 			Name:       mealToUpdate.MealName,
 			Components: make([]meals.MealComponent, 0),
@@ -170,7 +170,7 @@ func atoiIgnoreError(s string) int {
 	return i
 }
 
-func createDetailForm(selectedMeal listItem) *huh.Form {
+func createDetailForm(selectedMeal mealListItem) *huh.Form {
 	meal, err := meals.MS.GetMeal(selectedMeal.mealId)
 	if err != nil {
 		log.Fatal(err)
@@ -223,7 +223,7 @@ func mealListItems() ([]list.Item, error) {
 
 	var items []list.Item
 	for _, meal := range allMeals {
-		items = append(items, listItem{
+		items = append(items, mealListItem{
 			title:  meal.Name,
 			desc:   fmt.Sprintf("Calories: %s | Protein: %s | Carbs: %s | Fats: %s", strconv.Itoa(meal.GetTotalCalories()), strconv.Itoa(meal.GetMealMacro(meals.Protein)), strconv.Itoa(meal.GetMealMacro(meals.Carbs)), strconv.Itoa(meal.GetMealMacro(meals.Fat))),
 			mealId: int(meal.ID),
@@ -232,7 +232,7 @@ func mealListItems() ([]list.Item, error) {
 	return items, nil
 }
 
-func ViewMealsModel() mealsModel {
+func ListMealsModel() mealsModel {
 	items, err := mealListItems()
 	if err != nil {
 		log.Fatal(err)
